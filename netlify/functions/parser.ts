@@ -67,14 +67,27 @@ function extractJsonLd(html: string): Record<string, unknown> | null {
 }
 
 function extractInitialState(html: string): Record<string, unknown> | null {
-  const match = html.match(/window\.__INITIAL_STATE__\s*=\s*({[\s\S]*?})\s*<\/script>/);
-  if (!match) return null;
-  try {
-    const cleaned = match[1].replace(/undefined/g, "null");
-    return JSON.parse(cleaned);
-  } catch {
-    return null;
+  // Try multiple patterns - XHS sometimes uses different formats
+  const patterns = [
+    /window\.__INITIAL_STATE__\s*=\s*({[\s\S]*?})\s*<\/script>/,
+    /window\.__INITIAL_STATE__\s*=\s*({.+?})\s*;?\s*(?:<\/script>|$)/m,
+    /window\.__INITIAL_STATE__\s*=\s*(.+)/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = html.match(pattern);
+    if (!match) continue;
+    try {
+      const cleaned = match[1]
+        .replace(/undefined/g, "null")
+        .replace(/\\u002F/g, "/");
+      const parsed = JSON.parse(cleaned);
+      if (parsed && typeof parsed === "object") return parsed;
+    } catch {
+      continue;
+    }
   }
+  return null;
 }
 
 function extractMetaContent(html: string, property: string): string {
@@ -237,9 +250,13 @@ export async function parseNote(noteUrl: string): Promise<ParseResponse> {
   try {
     const resp = await fetch(finalUrl, {
       headers: {
-        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
         "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+        "Cookie": "xsecappid=xhs-pc-web",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
       },
     });
 
