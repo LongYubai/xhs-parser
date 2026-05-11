@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.netlify/
+*.js
+*.js.map
+*.d.ts
+!netlify.toml
